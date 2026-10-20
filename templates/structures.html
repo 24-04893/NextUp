@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+{#
+  templates/structures.html -- Heap & AVL Tree Visualizer.
+  Matches the NextUp landing & dashboard design system (Inter, #f97316 orange,
+  clean white cards, same top header). Read-only view.
+#}
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NextUp — Heap &amp; AVL Visualizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        document.documentElement.setAttribute('data-anim',
+            (function () { try { return localStorage.getItem('nextup.anim') || 'on'; } catch (e) { return 'on'; } })());
+        // Apply DSA mode before first paint
+        (function () { try { if (localStorage.getItem('nextup.dsaMode') === '1') document.documentElement.classList.add('dsa-mode'); } catch (e) {} })();
+        // Apply dark mode before first paint (mirrors index.html: '0' = dark, absent = light)
+        (function () { try { if (localStorage.getItem('nextup.dash.light') === '0') document.documentElement.classList.add('dash-dark'); } catch (e) {} })();
+    </script>
+    <style>
+        /* ── DSA Mode: dual-label spans ── */
+        .plain-term { display: inline; }
+        .dsa-term   { display: none; }
+        html.dsa-mode .plain-term { display: none; }
+        html.dsa-mode .dsa-term   { display: inline; }
+
+        :root {
+            --primary: #f97316;
+            --primary-hover: #ea580c;
+            --primary-soft: rgba(249, 115, 22, 0.12);
+            --bg: #f4f6fa;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: rgba(15, 23, 42, 0.08);
+            --border-strong: rgba(15, 23, 42, 0.14);
+            --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+            --radius-lg: 22px;
+            --radius-md: 14px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        @keyframes liquidGradientMove {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(125deg, #fff1e6 0%, #fde8e8 28%, #eef2ff 58%, #fff7ed 82%, #e0f2fe 100%);
+            background-size: 300% 300%;
+            animation: liquidGradientMove 24s ease-in-out infinite;
+            background-attachment: fixed;
+            color: var(--text);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ================= TOP BAR (MATCHES DASHBOARD) ================= */
+        .dash-header {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .dash-header-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 14px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .dash-brand-group {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .dash-brand-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .dash-logo-wrap {
+            display: inline-flex;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 4px 10px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .dash-logo-wrap img {
+            height: 62px;
+            width: auto;
+            display: block;
+            object-fit: contain;
+        }
+
+        .dash-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--primary-soft);
+            color: var(--primary-hover);
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 999px;
+        }
+
+        .dash-nav {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--surface-soft);
+            padding: 5px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+        }
+
+        .dash-nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 18px;
+            border-radius: 999px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .dash-nav-link:hover {
+            color: var(--text);
+            background: rgba(15, 23, 42, 0.04);
+        }
+
+        .dash-nav-link.is-active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(249, 115, 22, 0.28);
+        }
+
+        .dash-nav-link svg {
+            width: 16px;
+            height: 16px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .profile-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 6px 14px 6px 7px;
+            border-radius: 999px;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .profile-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 0.85rem;
+            display: grid;
+            place-items: center;
+        }
+
+        .profile-info {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.15;
+        }
+
+        .profile-name { font-size: 0.82rem; font-weight: 700; }
+        .profile-sub { font-size: 0.7rem; color: var(--text-muted); }
+
+        /* ================= MAIN VISUALIZER LAYOUT ================= */
+        .viz-main {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 28px 28px 48px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .viz-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.60) 0%, rgba(255, 255, 255, 0.26) 100%);
+            backdrop-filter: blur(22px) saturate(165%);
+            -webkit-backdrop-filter: blur(22px) saturate(165%);
+            border: 1.5px solid rgba(255, 255, 255, 0.80);
+            border-radius: var(--radius-lg);
+            padding: 24px 26px;
+            box-shadow:
+                0 14px 32px rgba(31, 38, 135, 0.08),
+                0 2px 6px rgba(15, 23, 42, 0.04),
+                inset 2px 2px 5px rgba(255, 255, 255, 0.94),
+                inset -2px -2px 6px rgba(148, 163, 184, 0.22),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .viz-card:hover {
+            transform: translateY(-4px);
+            box-shadow:
+                0 22px 48px rgba(31, 38, 135, 0.14),
+                inset 2px 2px 6px rgba(255, 255, 255, 0.98),
+                inset -2px -2px 6px rgba(148, 163, 184, 0.24);
+        }
+
+        .viz-card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .viz-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .fig-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: var(--primary-soft);
+            color: var(--primary-hover);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .viz-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -0.02em;
+        }
+
+        .viz-sub {
+            font-size: 0.86rem;
+            color: var(--text-muted);
+        }
+
+        /* ================= SVG CANVAS ================= */
+        .canvas-wrap {
+            position: relative;
+            width: 100%;
+            background: var(--surface-soft);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        .canvas-wrap:active { cursor: grabbing; }
+        .canvas-wrap:focus { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+        .canvas-wrap svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+            user-select: none;
+        }
+
+        .canv-edge {
+            stroke: #cbd5e1;
+            stroke-width: 2;
+        }
+
+        .canv-node rect {
+            fill: #ffffff;
+            stroke: #cbd5e1;
+            stroke-width: 1.8;
+            rx: 12;
+            ry: 12;
+            transition: fill 0.2s ease, stroke 0.2s ease;
+        }
+
+        .canv-node.canv-root rect {
+            fill: var(--primary);
+            stroke: var(--primary-hover);
+        }
+
+        .canv-name {
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            fill: #0f172a;
+        }
+
+        .canv-date, .canv-bal {
+            font-family: 'DM Mono', monospace;
+            font-size: 9.5px;
+            fill: #64748b;
+        }
+
+        .canv-root .canv-name,
+        .canv-root .canv-date,
+        .canv-root .canv-bal {
+            fill: #ffffff;
+        }
+
+        .canvas-empty {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            fill: #94a3b8;
+        }
+
+        /* Zoom Toolbar */
+        .zoom-bar {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
+            padding: 5px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+        }
+
+        .zoom-btn {
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 5px 11px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.16s ease, color 0.16s ease;
+        }
+
+        .zoom-btn:hover {
+            background: var(--primary-soft);
+            color: var(--primary-hover);
+        }
+
+        .zoom-btn.is-on {
+            background: var(--primary);
+            color: #ffffff;
+        }
+
+        .zoom-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            padding: 0 8px 0 4px;
+        }
+
+        /* ================= HEAP ARRAY & CONTROLS ================= */
+        .array-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .array-slot {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 112px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: var(--surface-soft);
+            border: 1px solid var(--border);
+            transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+        }
+
+        .array-slot.array-top {
+            background: var(--primary-soft);
+            border-color: rgba(249, 115, 22, 0.45);
+        }
+
+        .array-slot.slot-hot {
+            border-color: var(--primary);
+            background: rgba(249, 115, 22, 0.18);
+            transform: translateY(-2px);
+        }
+
+        .array-idx {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--primary-hover);
+        }
+
+        .array-name {
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .array-prio {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.74rem;
+            color: var(--text-muted);
+        }
+
+        .array-empty {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            padding: 6px 2px;
+        }
+
+        .viz-note {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        /* Animations */
+        @keyframes nodePop {
+            0% { opacity: 0; transform: scale(0.84); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .node-pop {
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: nodePop 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+            animation-delay: calc(var(--i, 0) * 60ms);
+        }
+
+        .node-coral rect {
+            stroke: var(--primary) !important;
+            stroke-width: 3 !important;
+            fill: var(--primary-soft) !important;
+        }
+
+        @media (max-width: 760px) {
+            .dash-header-inner, .viz-main { padding-left: 14px; padding-right: 14px; }
+        }
+
+        /* ══ Dark mode (class added by JS when nextup.dash.light === '0') ══ */
+        html.dash-dark body {
+            background: #181a20;
+            color: #f3f4f6;
+        }
+        /* Header goes dark, slightly lighter than body (#181a20) so it reads as elevated */
+        html.dash-dark .dash-header {
+            background: rgba(30, 32, 40, 0.97);
+            border-bottom-color: rgba(255, 255, 255, 0.07);
+        }
+        /* Logo wrap: match the seamless dark background exactly */
+        html.dash-dark .dash-logo-wrap {
+            background: #252830;
+            border-color: rgba(255, 255, 255, 0.07);
+        }
+        html.dash-dark .dash-brand-name {
+            color: #f3f4f6;
+        }
+        html.dash-dark .dash-brand-date {
+            color: #94a3b8;
+        }
+        html.dash-dark .dash-brand-link {
+            color: #f3f4f6;
+        }
+        html.dash-dark .dash-status-pill {
+            background: rgba(249, 115, 22, 0.15);
+            color: #fb923c;
+        }
+        /* Nav pill: dark elevated surface instead of white */
+        html.dash-dark .dash-nav {
+            background: rgba(37, 40, 48, 0.9);
+            border-color: rgba(255, 255, 255, 0.07);
+        }
+        html.dash-dark .dash-nav-link {
+            color: #94a3b8;
+        }
+        html.dash-dark .dash-nav-link:hover {
+            color: #f3f4f6;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        /* Profile pill: dark, lighter than header background */
+        html.dash-dark .profile-pill {
+            background: #252830;
+            border-color: rgba(255, 255, 255, 0.09);
+            color: #f3f4f6;
+        }
+        html.dash-dark .profile-name {
+            color: #f3f4f6;
+        }
+        html.dash-dark .profile-sub {
+            color: #94a3b8;
+        }
+        /* Viz layout */
+        html.dash-dark .viz-card {
+            background: #252933;
+            border-color: rgba(255, 255, 255, 0.07);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        html.dash-dark .viz-title {
+            color: #f3f4f6;
+        }
+        html.dash-dark .viz-sub {
+            color: #94a3b8;
+        }
+        html.dash-dark .viz-main {
+            background: #181a20;
+        }
+        /* Canvas background: dark surface instead of near-white */
+        html.dash-dark .canvas-wrap {
+            background: #1e2028;
+            border-color: rgba(255, 255, 255, 0.07);
+        }
+        html.dash-dark .canvas-bg rect {
+            fill: #1e2028;
+        }
+        /* Zoom toolbar: dark */
+        html.dash-dark .zoom-bar {
+            background: rgba(37, 40, 48, 0.95);
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+        html.dash-dark .zoom-btn {
+            color: #cbd5e1;
+        }
+        html.dash-dark .zoom-btn:hover {
+            background: rgba(249, 115, 22, 0.15);
+            color: #fb923c;
+        }
+        /* Edges: visible orange tint */
+        html.dash-dark .canv-edge {
+            stroke: rgba(249, 115, 22, 0.4);
+        }
+        /* Regular nodes: visible slate-blue surface with orange border */
+        html.dash-dark .canv-node rect {
+            fill: #2e3348;
+            stroke: rgba(249, 115, 22, 0.55);
+        }
+        /* Root node keeps orange fill — stays visible */
+        html.dash-dark .canv-node.canv-root rect {
+            fill: #f97316;
+            stroke: #ea580c;
+        }
+        /* Node text — light on dark nodes */
+        html.dash-dark .canv-name {
+            fill: #e2e8f0;
+        }
+        html.dash-dark .canv-date,
+        html.dash-dark .canv-bal {
+            fill: #94a3b8;
+        }
+        /* Root text stays white (orange bg) */
+        html.dash-dark .canv-root .canv-name,
+        html.dash-dark .canv-root .canv-date,
+        html.dash-dark .canv-root .canv-bal {
+            fill: #ffffff;
+        }
+        html.dash-dark .canvas-empty {
+            fill: #64748b;
+        }
+        /* Controls / inputs */
+        html.dash-dark .struct-controls {
+            background: #252933;
+            border-color: rgba(255, 255, 255, 0.07);
+        }
+        html.dash-dark .struct-input {
+            background: rgba(15, 23, 42, 0.6);
+            border-color: rgba(255, 255, 255, 0.12);
+            color: #f3f4f6;
+        }
+        html.dash-dark .struct-btn {
+            background: rgba(249, 115, 22, 0.15);
+            color: #fb923c;
+            border-color: rgba(249, 115, 22, 0.3);
+        }
+        html.dash-dark .back-btn {
+            background: rgba(37, 40, 48, 0.9);
+            border-color: rgba(255, 255, 255, 0.10);
+            color: #f3f4f6;
+        }
+
+        html[data-anim="off"] *,
+        html[data-anim="off"] *::before,
+        html[data-anim="off"] *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header class="dash-header">
+    <div class="dash-header-inner">
+        <div class="dash-brand-group">
+            <a href="{{ url_for('index') }}" class="dash-brand-link" title="Back to Dashboard">
+                <span class="dash-logo-wrap">
+                    <img src="{{ url_for('static', filename='NextUpLogo.png') }}" alt="NextUp Logo">
+                </span>
+            </a>
+            <span class="dash-status-pill">{{ stats.open }} open &middot; {{ stats.completed }} done</span>
+        </div>
+
+        <nav class="dash-nav" aria-label="Visualizer navigation">
+            <a href="{{ url_for('index') }}" class="dash-nav-link">
+                <svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                <span>Dashboard</span>
+            </a>
+            <span class="dash-nav-link is-active">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M10.5 7.5 6.5 16.5"/><path d="M13.5 7.5 17.5 16.5"/></svg>
+                <span>Heap &amp; AVL Visualizer</span>
+            </span>
+        </nav>
+
+        <a href="{{ url_for('index') }}" class="profile-pill" title="Return to Dashboard">
+            <span class="profile-avatar">{{ (current_user.name[0]|upper) if current_user and current_user.name else 'J' }}</span>
+            <span class="profile-info">
+                <span class="profile-name">{{ current_user.name.split()[0] if current_user and current_user.name else 'Juan' }}</span>
+                <span class="profile-sub">{{ (current_user.program ~ (' · ' ~ current_user.yearLevel if current_user.yearLevel else '')) if current_user else 'CpE 3102' }}</span>
+            </span>
+        </a>
+    </div>
+</header>
+
+<main class="viz-main">
+    <!-- MAX HEAP -->
+    <section class="viz-card">
+        <div class="viz-card-head">
+            <div class="viz-title-wrap">
+                <span class="fig-badge">Fig. 1</span>
+                <h2 class="viz-title"><span class="plain-term">Priority Queue</span><span class="dsa-term">Max Heap Visualization</span></h2>
+            </div>
+            <span class="viz-sub"><span class="plain-term">Your most urgent task is always shown first</span><span class="dsa-term">Highest priority task sits at the top (root)</span></span>
+        </div>
+
+        <div class="canvas-wrap" id="heap-wrap">
+            <svg id="heap-svg" role="img" aria-label="Heap as a binary tree"></svg>
+        </div>
+
+        <div class="array-row" id="heap-array"></div>
+    </section>
+
+    <!-- AVL TREE -->
+    <section class="viz-card">
+        <div class="viz-card-head">
+            <div class="viz-title-wrap">
+                <span class="fig-badge">Fig. 2</span>
+                <h2 class="viz-title"><span class="plain-term">Deadline Calendar Tree</span><span class="dsa-term">AVL Tree Visualization</span></h2>
+            </div>
+            <span class="viz-sub"><span class="plain-term">Tasks sorted by deadline (top task highlighted)</span><span class="dsa-term">Self-balancing tree sorted by deadline (root highlighted in orange)</span></span>
+        </div>
+
+        <div class="canvas-wrap" id="avl-wrap">
+            <svg id="avl-svg" role="img" aria-label="AVL tree"></svg>
+        </div>
+        <p class="viz-note" id="replay-note"></p>
+    </section>
+</main>
+
+<!-- Hidden event log element preserved for compatibility -->
+<ol class="event-log" id="rotation-log" hidden>
+    {% for e in log %}
+        <li>{{ e.op }} '{{ e.name }}'</li>
+    {% endfor %}
+</ol>
+
+{# ================= DATA (safe JSON blocks) ================= #}
+<script type="application/json" id="avl-data">{{ avl | tojson }}</script>
+<script type="application/json" id="heap-data">{{ heap | tojson }}</script>
+
+<script>
+    const SVGNS = 'http://www.w3.org/2000/svg';
+    const NODE_W = 104, NODE_H = 54, GAP_X = 16, GAP_Y = 84;
+
+    function el(name, attrs, parent) {
+        const node = document.createElementNS(SVGNS, name);
+        for (const k in attrs) node.setAttribute(k, attrs[k]);
+        if (parent) parent.appendChild(node);
+        return node;
+    }
+    function text(svg, x, y, str, cls, anchor) {
+        const t = el('text', {x: x, y: y, 'class': cls, 'text-anchor': anchor || 'middle'}, svg);
+        t.textContent = str || '';
+        return t;
+    }
+    function truncate(name, n) {
+        if (!name) return '';
+        return name.length > n ? name.slice(0, n - 1) + '\u2026' : name;
+    }
+
+    const FRAME_H = 360;
+    const MARGIN = 40;
+    const MIN_Z = 0.25, MAX_Z = 4.0;
+
+    function makeViewer(wrapId, svgId, zoomLabelId) {
+        const wrap = document.getElementById(wrapId);
+        const svg = document.getElementById(svgId);
+        const full = {
+            w: parseFloat(svg.getAttribute('width')),
+            h: parseFloat(svg.getAttribute('height')),
+        };
+        const k0 = Math.min((wrap.clientWidth - MARGIN) / full.w,
+                            (FRAME_H - MARGIN) / full.h);
+        const def = {
+            k: k0,
+            x: -(wrap.clientWidth - MARGIN - full.w * k0) / 2,
+            y: -(FRAME_H - MARGIN - full.h * k0) / 2,
+        };
+        let view = Object.assign({}, def);
+
+        function frame() {
+            wrap.style.height = FRAME_H + 'px';
+            wrap.style.overflow = 'hidden';
+        }
+        function viewBox() {
+            const fw = wrap.clientWidth, fh = FRAME_H;
+            return view.x + ' ' + view.y + ' ' + (fw / view.k) + ' ' + (fh / view.k);
+        }
+        function apply() {
+            view.k = Math.min(MAX_Z, Math.max(MIN_Z, view.k));
+            svg.setAttribute('viewBox', viewBox());
+            if (zoomLabelId) {
+                const lbl = document.getElementById(zoomLabelId);
+                if (lbl) lbl.textContent = Math.round(view.k * 100) + '%';
+            }
+        }
+        function zoomAt(px, py, factor) {
+            const fx = view.x + px / view.k, fy = view.y + py / view.k;
+            const k2 = Math.min(MAX_Z, Math.max(MIN_Z, view.k * factor));
+            view.x = fx - px / k2;
+            view.y = fy - py / k2;
+            view.k = k2;
+            apply();
+        }
+        svg.addEventListener('wheel', (ev) => {
+            ev.preventDefault();
+            const r = svg.getBoundingClientRect();
+            zoomAt(ev.clientX - r.left, ev.clientY - r.top,
+                   ev.deltaY < 0 ? 1.12 : 1 / 1.12);
+        }, {passive: false});
+
+        let drag = null, pinch = null;
+        svg.addEventListener('pointerdown', (ev) => {
+            svg.setPointerCapture(ev.pointerId);
+            drag = {x: ev.clientX, y: ev.clientY};
+        });
+        svg.addEventListener('pointermove', (ev) => {
+            if (pinch && pinch.has(ev.pointerId)) {
+                pinch.now.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
+                const pts = Array.from(pinch.now.values());
+                if (pts.length === 2) {
+                    const d2 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                    zoomAt((pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2, d2 / pinch.d0);
+                    pinch.d0 = d2;
+                }
+                return;
+            }
+            if (!drag) return;
+            view.x -= (ev.clientX - drag.x) / view.k;
+            view.y -= (ev.clientY - drag.y) / view.k;
+            drag = {x: ev.clientX, y: ev.clientY};
+            apply();
+        });
+        svg.addEventListener('pointerup', () => { drag = null; pinch = null; });
+        svg.addEventListener('pointercancel', () => { drag = null; pinch = null; });
+        svg.addEventListener('touchstart', (ev) => {
+            if (ev.touches.length === 2) {
+                ev.preventDefault();
+                drag = null;
+                const t = ev.touches;
+                pinch = {d0: Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY), now: new Map()};
+                for (const tt of t) pinch.now.set(tt.identifier, {x: tt.clientX, y: tt.clientY});
+            }
+        }, {passive: false});
+        svg.addEventListener('touchmove', (ev) => {
+            if (pinch && ev.touches.length === 2) ev.preventDefault();
+        }, {passive: false});
+        svg.addEventListener('touchend', () => { pinch = null; });
+
+        frame(); apply();
+        return {
+            in: () => zoomAt(wrap.clientWidth / 2, FRAME_H / 2, 1.25),
+            out: () => zoomAt(wrap.clientWidth / 2, FRAME_H / 2, 1 / 1.25),
+            reset: () => { view = Object.assign({}, def); apply(); },
+            fit: () => { view = Object.assign({}, def); apply(); },
+        };
+    }
+
+    function drawTree(svgEl, rootData) {
+        svgEl.innerHTML = '';
+        if (!rootData) {
+            text(svgEl, 240, 40, 'Nothing scheduled yet — add a task from the Dashboard.', 'canvas-empty', 'middle');
+            svgEl.setAttribute('width', 480); svgEl.setAttribute('height', 64);
+            return;
+        }
+        let nextX = 0, deepest = 0;
+        function place(node, depth) {
+            if (!node) return null;
+            const left = place(node.left, depth + 1);
+            const x = nextX;
+            nextX += 1;
+            const right = place(node.right, depth + 1);
+            deepest = Math.max(deepest, depth);
+            return {d: node, x: x, y: depth, left: left, right: right};
+        }
+        const layout = place(rootData, 0);
+        const width = nextX * (NODE_W + GAP_X) + (NODE_W + GAP_X);
+        const height = (deepest + 1) * (NODE_H + GAP_Y) + (NODE_H + GAP_Y);
+        svgEl.setAttribute('width', width); svgEl.setAttribute('height', height);
+        svgEl.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+
+        function drawEdge(p, c) {
+            const x1 = p.x * (NODE_W + GAP_X) + NODE_W / 2;
+            const y1 = p.y * (NODE_H + GAP_Y) + NODE_H;
+            const x2 = c.x * (NODE_W + GAP_X) + NODE_W / 2;
+            const y2 = c.y * (NODE_H + GAP_Y);
+            el('line', {x1: x1, y1: y1, x2: x2, y2: y2, 'class': 'canv-edge', 'data-depth': c.y}, svgEl);
+        }
+        function collect(p) {
+            if (!p) return;
+            if (p.left) { drawEdge(p, p.left); collect(p.left); }
+            if (p.right) { drawEdge(p, p.right); collect(p.right); }
+        }
+        collect(layout);
+
+        function drawNode(p, isRoot) {
+            const x = p.x * (NODE_W + GAP_X);
+            const y = p.y * (NODE_H + GAP_Y);
+            const g = el('g', {'class': isRoot ? 'canv-node canv-root' : 'canv-node', 'data-depth': p.y}, svgEl);
+            el('rect', {x: x, y: y, width: NODE_W, height: NODE_H}, g);
+            const pct = isRoot ? 8 : 10;
+            text(g, x + NODE_W / 2, y + 18, truncate(p.d.name, 10), 'canv-name');
+            text(g, x + NODE_W / 2, y + 32, (p.d.deadline || '').slice(5), 'canv-date');
+            if (p.d.prio !== undefined) {
+                text(g, x + NODE_W - pct, y + NODE_H - 7, String(p.d.prio) + ' pts', 'canv-bal', 'end');
+            } else {
+                text(g, x + NODE_W - pct, y + NODE_H - 7, 'b=' + p.d.balance, 'canv-bal', 'end');
+            }
+        }
+        function collectNodes(p, isRoot) {
+            if (!p) return;
+            drawNode(p, isRoot);
+            collectNodes(p.left, false);
+            collectNodes(p.right, false);
+        }
+        collectNodes(layout, true);
+    }
+
+    function arrayToTree(a) {
+        const nodes = a.map(e => ({
+            name: e.name, deadline: e.deadline, balance: null,
+            prio: e.priority, left: null, right: null,
+        }));
+        nodes.forEach((n, i) => {
+            const l = 2 * i + 1, r = 2 * i + 2;
+            if (l < nodes.length) n.left = nodes[l];
+            if (r < nodes.length) n.right = nodes[r];
+        });
+        return nodes[0] || null;
+    }
+
+    const avlData = JSON.parse(document.getElementById('avl-data').textContent);
+    const heapData = JSON.parse(document.getElementById('heap-data').textContent);
+
+    const heapSvg = document.getElementById('heap-svg');
+    drawTree(heapSvg, arrayToTree(heapData));
+    const arrayRow = document.getElementById('heap-array');
+    heapData.forEach(e => {
+        const slot = document.createElement('div');
+        slot.className = 'array-slot' + (e.index === 0 ? ' array-top' : '');
+        const idx = document.createElement('span');
+        idx.className = 'array-idx';
+        idx.textContent = '#' + e.index;
+        const nm = document.createElement('span');
+        nm.className = 'array-name';
+        nm.textContent = truncate(e.name, 14);
+        const pr = document.createElement('span');
+        pr.className = 'array-prio';
+        pr.textContent = e.priority + ' pts';
+        slot.append(idx, nm, pr);
+        arrayRow.appendChild(slot);
+    });
+    if (heapData.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'array-empty';
+        empty.textContent = 'No tasks in heap yet.';
+        arrayRow.appendChild(empty);
+    }
+
+    const avlSvg = document.getElementById('avl-svg');
+    drawTree(avlSvg, avlData);
+
+    function buildToolbar(wrapId, svgId, kind) {
+        const labelId = svgId + '-zoom';
+        const viewer = makeViewer(wrapId, svgId, labelId);
+        const bar = document.createElement('div');
+        bar.className = 'zoom-bar';
+        const mk = (txt, fn, title) => {
+            const b = document.createElement('button');
+            b.className = 'zoom-btn'; b.type = 'button';
+            b.textContent = txt; b.title = title;
+            b.addEventListener('click', fn);
+            return b;
+        };
+        const label = document.createElement('span');
+        label.className = 'zoom-label'; label.id = labelId; label.textContent = '';
+        bar.append(mk('+', viewer.in, 'Zoom in'),
+                   mk('\u2212', viewer.out, 'Zoom out'),
+                   mk('Reset', viewer.reset, 'Back to default fit'),
+                   mk('Fit', viewer.fit, 'Fit diagram'),
+                   mk('Replay', () => replayFigure(kind), 'Replay animation'),
+                   label);
+        document.getElementById(wrapId).appendChild(bar);
+        const wrap = document.getElementById(wrapId);
+        wrap.tabIndex = 0;
+        wrap.addEventListener('keydown', (ev) => {
+            if (ev.key === '+' || ev.key === '=') { viewer.in(); ev.preventDefault(); }
+            else if (ev.key === '-') { viewer.out(); ev.preventDefault(); }
+            else if (ev.key === '0') { viewer.reset(); ev.preventDefault(); }
+        });
+    }
+    buildToolbar('heap-wrap', 'heap-svg', 'heap');
+    buildToolbar('avl-wrap', 'avl-svg', 'avl');
+
+    const animOn = () => document.documentElement.getAttribute('data-anim') !== 'off';
+    const replayNote = document.getElementById('replay-note');
+    let motionTimers = [];
+
+    function clearMotion() {
+        motionTimers.forEach(t => clearTimeout(t));
+        motionTimers = [];
+        [heapSvg, avlSvg].forEach(svg => {
+            svg.querySelectorAll('.node-pop, .node-coral')
+                .forEach(n => n.classList.remove('node-pop', 'node-coral'));
+            svg.querySelectorAll('.canv-edge').forEach(e => {
+                e.style.transition = '';
+                e.style.strokeDasharray = '';
+                e.style.strokeDashoffset = '';
+                e.style.opacity = '';
+            });
+        });
+    }
+
+    function depthDelay(d) { return Math.min(d, 6) * 70; }
+
+    function animateTree(svg) {
+        clearMotion();
+        if (!animOn()) return;
+        const edges = Array.prototype.slice.call(svg.querySelectorAll('.canv-edge'));
+        const nodes = Array.prototype.slice.call(svg.querySelectorAll('.canv-node'));
+        if (nodes.length > 90) return;
+        edges.forEach(line => {
+            const len = line.getTotalLength();
+            const d = parseInt(line.getAttribute('data-depth') || '0', 10);
+            line.style.transition = 'none';
+            line.style.strokeDasharray = String(len);
+            line.style.strokeDashoffset = String(len);
+            line.style.opacity = '0';
+            motionTimers.push(setTimeout(() => {
+                line.style.transition = 'stroke-dashoffset 260ms cubic-bezier(.2,.9,.3,1), opacity 120ms linear';
+                line.style.strokeDashoffset = '0';
+                line.style.opacity = '1';
+                motionTimers.push(setTimeout(() => { line.style.transition = ''; }, 460));
+            }, depthDelay(d)));
+        });
+        nodes.forEach(g => {
+            const d = parseInt(g.getAttribute('data-depth') || '0', 10);
+            g.style.setProperty('--i', String(Math.min(d, 6)));
+            g.classList.add('node-pop');
+            g.addEventListener('animationend', () => {
+                g.classList.remove('node-pop');
+                g.style.removeProperty('--i');
+            }, { once: true });
+        });
+    }
+
+    function replayFigure(kind) {
+        const svg = kind === 'heap' ? heapSvg : avlSvg;
+        if (!svg || !animOn()) { if (replayNote) replayNote.textContent = ''; return; }
+        animateTree(svg);
+        if (replayNote) {
+            replayNote.textContent = kind === 'avl' ? 'Replaying AVL tree layout.' : '';
+        }
+    }
+
+    animateTree(heapSvg);
+    animateTree(avlSvg);
+</script>
+</body>
+</html>

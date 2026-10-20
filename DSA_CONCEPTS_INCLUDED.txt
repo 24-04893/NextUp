@@ -1,0 +1,115 @@
+================================================================================
+NEXTUP — DATA STRUCTURES & ALGORITHMS INCLUDED IN THE WEBSITE
+================================================================================
+Requirement Check: Minimum of three (3) distinct DSA concepts implemented.
+NextUp implements 3 distinct Data Structures and 5 Algorithm categories below.
+
+--------------------------------------------------------------------------------
+PART 1: DATA STRUCTURES INCLUDED
+--------------------------------------------------------------------------------
+
+1. Heap / Priority Queue  [Core Feature]
+   - File & Class: nextup/heap.py -> MaxHeap
+   - How it is used in NextUp:
+     * Powers the "Do This Next" top-priority hero card on the main Dashboard.
+     * Stores all open tasks ordered by a composite priority score (urgency,
+       difficulty, estimated hours, and task type from nextup/scoring.py).
+     * Uses an array-backed binary max-heap plus an ID-to-index position map
+       (_pos) so any task can be looked up, updated, or removed in O(log n)
+       even when it is not at the root.
+     * Key methods:
+       - peek() -> O(1) instant lookup of the #1 most urgent task (index 0)
+       - build() -> O(n) bottom-up heapify on dashboard load
+       - insert() / extract_max() / remove() / update_priority() -> O(log n)
+     * Visualized live in the "Heap & AVL" (Structures) page as both a binary
+       tree diagram and its underlying 0-indexed heap array.
+
+2. AVL Tree (Self-Balancing Binary Search Tree)  [Core Feature]
+   - File & Class: nextup/avl_tree.py -> AVLTree, _Node
+   - How it is used in NextUp:
+     * Indexes all open tasks chronologically by (deadline, id) so the schedule
+       always stays balanced and sorted.
+     * Automatically maintains height balance (|balance_factor| <= 1) using
+       LL, RR, LR, and RL rotations (_rotate_left, _rotate_right, _rebalance)
+       on insert() and delete().
+     * Supports O(log n) search(), contains(), and order-statistic find_kth(),
+       plus O(log n + m) pruned date-range filtering via range_query(start, end).
+     * Records a live rotation log (LL/RR/LR/RL/rebuild) and exports its tree
+       structure via export_json() to the "Heap & AVL" visualizer page.
+
+3. Stack (LIFO)  [Undo-Delete Buffer]
+   - File & Class: nextup/stack.py -> UndoStack
+   - How it is used in NextUp:
+     * Stores recently deleted tasks and their expiration timestamps in LIFO
+       order using push(), pop(), peek(), and pop_by_id() (using an auxiliary
+       stack to preserve LIFO order when restoring a specific task).
+
+4. Queue & Linked List (FIFO)  [Bounded Event Log]
+   - File & Class: nextup/event_queue.py -> EventQueue, _QNode
+   - How it is used in NextUp:
+     * Singly-linked FIFO queue (capacity 20) used by AVLTree.log to record
+       insert, delete, LL/RR/LR/RL rotations, and rebuild events in O(1) time.
+
+--------------------------------------------------------------------------------
+PART 2: ALGORITHMS INCLUDED
+--------------------------------------------------------------------------------
+
+1. Searching Algorithms
+   - Binary Tree Search — O(log n):
+     * AVLTree.search() and AVLTree.contains() locate tasks by deadline key.
+     * AVLTree.find_kth() finds the k-th earliest task using subtree sizes.
+   - Pruned Range Search — O(log n + m):
+     * AVLTree.range_query(start, end) (used by TaskManager.filter_dashboard()
+       for "Due today", "This week", and custom date-range filters) skips
+       entire subtrees outside the requested date window and tracks visited vs.
+       total nodes.
+   - Linear Substring & Subject Search — O(n):
+     * TaskManager.filter_dashboard() scans tasks linearly for case-insensitive
+       task-name substring searches (query) and exact subject chip filters.
+
+2. Sorting Algorithms
+   - Priority Score Sorting — O(n log n):
+     * refresh_priorities() in nextup/scoring.py sorts all open tasks from
+       highest to lowest priority score for the "Up Next" task list.
+     * TaskManager.prepare_dashboard() also sorts completed tasks in reverse
+       chronological order by (completed_at, id).
+   - Tree-Based Chronological Sorting — O(n):
+     * AVLTree.inorder() produces tasks sorted from earliest to latest deadline
+       directly from the balanced tree without running a separate sort pass.
+   - Heap Partial Ordering — O(n) build / O(log n) update:
+     * MaxHeap maintains the max-heap invariant so the highest-priority task
+       is always at index 0.
+
+3. Tree Traversal Algorithms
+   - Inorder Traversal:
+     * AVLTree.inorder() / _inorder() visits left -> root -> right to emit
+       tasks in ascending deadline order.
+   - Pruned Window Traversal:
+     * AVLTree._range() traverses only branches that overlap [lo, hi],
+       avoiding full-tree scans during date filtering.
+   - Recursive Structural Traversal:
+     * AVLTree._export() recursively walks nodes to build JSON payloads (height,
+       balance factor, children) for the SVG tree visualizer.
+
+4. Greedy Algorithms (Priority-First Scheduling Heuristic)
+   - Files: nextup/scoring.py + nextup/heap.py
+   - How it is used:
+     * NextUp uses a greedy priority scheduling heuristic: every open task is
+       scored using urgency (days remaining), difficulty (1-5), estimated hours,
+       and task type, and MaxHeap.peek() / extract_max() always selects the
+       locally highest-scoring task as the immediate "Do This Next" action.
+
+5. Divide and Conquer
+   - Files: nextup/avl_tree.py, nextup/scoring.py
+   - How it is used:
+     * AVLTree recursively divides the key space into left and right subtrees
+       on every insert, delete, search, and range_query operation.
+     * Python's built-in Timsort (used in refresh_priorities() and completed
+       history sorting) applies divide-and-conquer merge sorting in O(n log n).
+
+6. Dynamic Programming (0/1 Knapsack Study Planner)
+   - Files: nextup/scoring.py -> plan_study_session(), nextup/app.py -> /api/plan-session
+   - How it is used:
+     * Given a student's available free hours, uses a 0/1 Knapsack DP table
+       (in 0.5-hour increments) to select the subset of open tasks that
+       maximizes total priority score without exceeding the time budget.
