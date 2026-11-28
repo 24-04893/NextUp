@@ -2,9 +2,12 @@
 app.py — Flask routes for NextUp (all DSA/business logic lives in TaskManager).
 """
 
+import base64
+import json
 import os
 import random
 import uuid
+import zlib
 from datetime import date, timedelta, datetime, timezone
 
 from flask import (Flask, abort, flash, jsonify, redirect, render_template,
@@ -12,11 +15,13 @@ from flask import (Flask, abort, flash, jsonify, redirect, render_template,
 from werkzeug.security import check_password_hash, generate_password_hash
 
 if __package__:
+    from .task import Task
     from .task_manager import TaskManager
     from .storage import UserStore
     from .scoring import DIFFICULTY_MAX, HOURS_CAP, URGENCY_DECAY_K, score_breakdown, plan_study_session
     from .pdf_export import generate_task_pdf, generate_tasks_list_pdf, safe_pdf_filename
 else:
+    from task import Task
     from task_manager import TaskManager
     from storage import UserStore
     from scoring import DIFFICULTY_MAX, HOURS_CAP, URGENCY_DECAY_K, score_breakdown, plan_study_session
@@ -70,12 +75,34 @@ def current_manager():
     if mgr is None:
         mgr = TaskManager(user_db, legacy_json="")
         _user_managers[user_db] = mgr
+    # On Vercel serverless, /tmp is ephemeral across instances; hydrate from signed session cookie if empty.
+    if os.environ.get("VERCEL") and not mgr.store.load_all() and session.get("vercel_tasks"):
+        try:
+            raw = zlib.decompress(base64.b64decode(session["vercel_tasks"]))
+            items = json.loads(raw.decode("utf-8"))
+            if isinstance(items, list) and items:
+                tasks = [Task.from_dict(d) for d in items]
+                mgr.store.save_all(tasks)
+                mgr = TaskManager(user_db, legacy_json="")
+                _user_managers[user_db] = mgr
+        except Exception:
+            pass
     return mgr
 
 
 @app.after_request
 def _no_cache_for_dynamic_views(response):
     """Prevent browsers from caching one student's dashboard for another."""
+    if os.environ.get("VERCEL") and request.method == "POST" and not request.path.startswith("/auth/logout"):
+        try:
+            mgr = current_manager()
+            tasks = mgr.store.load_all()
+            payload = json.dumps([t.to_dict() for t in tasks], separators=(",", ":")).encode("utf-8")
+            encoded = base64.b64encode(zlib.compress(payload, level=6)).decode("ascii")
+            if len(encoded) < 3400:
+                session["vercel_tasks"] = encoded
+        except Exception:
+            pass
     if not request.path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return response
