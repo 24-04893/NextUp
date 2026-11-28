@@ -11,12 +11,20 @@ import tempfile
 import time
 from datetime import date
 
-from task import TASK_TYPES, Task
-from heap import MaxHeap
-from avl_tree import AVLTree
-from stack import UndoStack
-from scoring import refresh_priorities, priority_score
-from storage import TaskStore
+if __package__:
+    from .task import TASK_TYPES, LEGACY_TYPE_MAP, Task
+    from .heap import MaxHeap
+    from .avl_tree import AVLTree
+    from .stack import UndoStack
+    from .scoring import refresh_priorities, priority_score
+    from .storage import TaskStore
+else:
+    from task import TASK_TYPES, LEGACY_TYPE_MAP, Task
+    from heap import MaxHeap
+    from avl_tree import AVLTree
+    from stack import UndoStack
+    from scoring import refresh_priorities, priority_score
+    from storage import TaskStore
 
 MIN_DIFFICULTY = 1
 MAX_DIFFICULTY = 5
@@ -115,8 +123,9 @@ class TaskManager:
 
     @staticmethod
     def validate_type(task_type):
-        """Validate task type against TASK_TYPES (defaults to 'other'). O(1)."""
-        clean = (task_type or "other").strip().lower()
+        """Validate task type against TASK_TYPES (case-insensitive, migrates legacy types). O(1)."""
+        clean = (task_type or "others").strip().lower()
+        clean = LEGACY_TYPE_MAP.get(clean, clean)
         if clean not in TASK_TYPES:
             valid = ", ".join(TASK_TYPES)
             raise ValueError(f"Task type must be one of: {valid}.")

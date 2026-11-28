@@ -7,7 +7,10 @@ Complexity: insert/delete/search/find_kth O(log n); inorder O(n); range_query O(
 
 from datetime import date
 
-from event_queue import EventQueue
+if __package__:
+    from .event_queue import EventQueue
+else:
+    from event_queue import EventQueue
 
 
 class _Node:

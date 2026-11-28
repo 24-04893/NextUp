@@ -4,7 +4,20 @@ task.py — Task data model for NextUp.
 
 from datetime import date
 
-TASK_TYPES = ("quiz", "assignment", "project", "meeting", "other")
+TASK_TYPES = ("exam", "lab", "quiz", "activity", "assignment", "others")
+
+LEGACY_TYPE_MAP = {
+    "project": "lab",
+    "meeting": "activity",
+    "other": "others",
+}
+
+
+def normalize_task_type(raw_type: str) -> str:
+    """Normalize task type (case-insensitive) and migrate legacy categories. O(1)."""
+    clean = (raw_type or "others").strip().lower()
+    clean = LEGACY_TYPE_MAP.get(clean, clean)
+    return clean if clean in TASK_TYPES else "others"
 
 
 class Task:
@@ -13,7 +26,7 @@ class Task:
     def __init__(self, task_id: int, name: str, subject: str,
                  deadline: date, difficulty: int,
                  estimated_hours: float = 1.0,
-                 task_type: str = "other",
+                 task_type: str = "others",
                  deadline_time: str = None,
                  completed: bool = False,
                  completed_at: str = None):
@@ -23,8 +36,8 @@ class Task:
         self.deadline = deadline
         self.difficulty = difficulty
         self.estimated_hours = float(estimated_hours)
-        # Unknown type falls back to 'other'.
-        self.task_type = task_type if task_type in TASK_TYPES else "other"
+        # Normalize case and migrate legacy types; unknown falls back to 'others'.
+        self.task_type = normalize_task_type(task_type)
         self.deadline_time = deadline_time
         self.completed = completed
         self.completed_at = completed_at
@@ -63,7 +76,7 @@ class Task:
             deadline=date.fromisoformat(data["deadline"]),
             difficulty=int(data["difficulty"]),
             estimated_hours=float(data.get("estimated_hours", 1.0)),
-            task_type=data.get("task_type", "other"),
+            task_type=data.get("task_type", "others"),
             deadline_time=data.get("deadline_time"),
             completed=bool(data.get("completed", False)),
             completed_at=data.get("completed_at"),

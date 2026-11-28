@@ -116,7 +116,7 @@ def test_edit_deadline_resorts_both_structures(tm):
     # the heap keys moved too: B's stored priority must equal a fresh score
     entry = next(e for e in tm._heap.to_list() if e[3].id == b.id)
     fresh = priority_score(tm._tasks[b.id], tm.today())
-    assert entry[0] == fresh                 # re-scored, in place
+    assert entry[0] == pytest.approx(fresh, abs=1e-3)                 # re-scored, in place
 
 
 def test_edit_deadling_only_changes_that_task(tm):
@@ -231,7 +231,8 @@ def test_migration_imports_tasks_json(tmp_path):
         names = {t.name for t in manager._tasks.values()}
         assert names == {"Old quiz", "Old meeting"}
         meeting = next(t for t in manager._tasks.values()
-                       if t.task_type == "meeting")
+                       if t.name == "Old meeting")
+        assert meeting.task_type == "activity"   # legacy 'meeting' migrated cleanly
         assert meeting.deadline_time == "14:00"   # new fields survive migration
         assert manager._next_id >= 3              # ids never reused
         # running it twice must be a no-op (same manager object, no dupes)

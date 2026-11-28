@@ -2380,22 +2380,126 @@
             justify-content: space-between;
         }
 
+        .why-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+
         .why-table {
             width: 100%;
-            margin-top: 10px;
             border-collapse: collapse;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
+        }
+
+        .why-table th {
+            padding: 6px 8px 8px 0;
+            text-align: left;
+            font-weight: 700;
+            color: var(--dash-text);
+            border-bottom: 1px solid var(--dash-border);
+            white-space: nowrap;
+        }
+
+        .why-table th.why-num-head,
+        .why-table th.why-v-head {
+            text-align: right;
         }
 
         .why-table td {
-            padding: 6px 0;
+            padding: 7px 8px 7px 0;
+            border-bottom: 1px solid var(--dash-border);
+            vertical-align: middle;
+        }
+
+        .why-k { font-weight: 600; color: var(--dash-text); white-space: nowrap; }
+        .why-raw { color: var(--dash-muted); }
+        .why-num { font-family: "DM Mono", monospace; color: var(--dash-text); text-align: right; white-space: nowrap; }
+        .why-v { font-family: "DM Mono", monospace; font-weight: 600; color: var(--primary-soft); text-align: right; white-space: nowrap; padding-right: 0 !important; }
+        .why-total td { border-bottom: none; font-weight: 800; padding-top: 9px; }
+
+        .why-eq-details {
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .why-eq-summary {
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--primary-soft);
+            list-style: none;
+            user-select: none;
+        }
+
+        .why-eq-summary::-webkit-details-marker { display: none; }
+
+        .why-eq-box {
+            width: 100%;
+            margin-top: 10px;
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            background: rgba(15, 23, 42, 0.04);
+            border: 1px dashed var(--dash-border);
+            font-size: 0.76rem;
+        }
+
+        .why-eq-row {
+            padding: 8px 0;
             border-bottom: 1px solid var(--dash-border);
         }
 
-        .why-k { font-weight: 600; color: var(--dash-text); }
-        .why-v { font-family: "DM Mono", monospace; font-weight: 600; color: var(--primary-soft); text-align: right; padding-right: 14px !important; }
-        .why-e { color: var(--dash-muted); text-align: right; }
-        .why-total td { border-bottom: none; font-weight: 800; padding-top: 8px; }
+        .why-eq-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .why-eq-label {
+            font-weight: 700;
+            color: var(--dash-text);
+            margin-bottom: 5px;
+        }
+
+        .eq-lines {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-family: "DM Mono", monospace;
+            font-size: 0.76rem;
+        }
+
+        .eq-line {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px;
+            line-height: 1.45;
+        }
+
+        .eq-line-formula { color: var(--dash-muted); }
+        .eq-line-sub { color: var(--dash-text); }
+        .eq-line-result { color: var(--primary-soft); font-weight: 700; }
+
+        .eq-frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 3px;
+            line-height: 1.1;
+            font-size: 0.72rem;
+        }
+
+        .eq-frac-num {
+            padding: 0 5px 2px;
+            border-bottom: 1.5px solid currentColor;
+        }
+
+        .eq-frac-den {
+            padding: 2px 5px 0;
+        }
 
         /* ================= SEARCH, FILTERS & DARK CARDS ================= */
         .dash-card {
@@ -3821,16 +3925,97 @@
 
                             {% if breakdown %}
                             <details class="why-details">
-                                <summary>Why is this on top? <span>Score {{ breakdown.total }} &#9662;</span></summary>
-                                <table class="why-table">
-                                    <tbody>
-                                        <tr><td class="why-k">Urgency</td><td class="why-v">{{ breakdown.urgency }}</td><td class="why-e">days-left &times; 10</td></tr>
-                                        <tr><td class="why-k">Difficulty</td><td class="why-v">{{ breakdown.difficulty }}</td><td class="why-e">steps &times; 5</td></tr>
-                                        <tr><td class="why-k">Size</td><td class="why-v">{{ breakdown.hours }}</td><td class="why-e">hours &le;8 &times; 1.5</td></tr>
-                                        <tr><td class="why-k">Type</td><td class="why-v">{{ breakdown.type }}</td><td class="why-e">&lsquo;{{ top_info.task_type }}&rsquo;</td></tr>
-                                        <tr class="why-total"><td class="why-k">Total score</td><td class="why-v">{{ breakdown.total }}</td><td class="why-e">higher wins</td></tr>
-                                    </tbody>
-                                </table>
+                                <summary>Why is this on top? <span>Score {{ breakdown.total_str }} / 100 &#9662;</span></summary>
+                                <div class="why-table-wrap">
+                                    <table class="why-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Factor</th>
+                                                <th>Raw Input</th>
+                                                <th class="why-num-head">Normalized (0-100)</th>
+                                                <th class="why-num-head">Weight (w<sub>i</sub>)</th>
+                                                <th class="why-v-head">Weighted Score (w<sub>i</sub> &times; Norm)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in breakdown.rows %}
+                                            <tr>
+                                                <td class="why-k">{{ row.factor }}</td>
+                                                <td class="why-raw">{{ row.raw }}</td>
+                                                <td class="why-num">{{ row.norm }}</td>
+                                                <td class="why-num">{{ row.weight }}</td>
+                                                <td class="why-v">{{ row.weighted }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            <tr class="why-total">
+                                                <td class="why-k">Total Priority Score</td>
+                                                <td class="why-raw">&mdash;</td>
+                                                <td class="why-num">&mdash;</td>
+                                                <td class="why-num">{{ breakdown.weight_sum }}</td>
+                                                <td class="why-v">{{ breakdown.total_str }} / 100</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <details class="why-eq-details">
+                                    <summary class="why-eq-summary">See computation &#9662;</summary>
+                                    <div class="why-eq-box">
+                                        {% set eq = breakdown.eq %}
+                                        <div class="why-eq-row">
+                                            <div class="why-eq-label">Urgency (U)</div>
+                                            <div class="eq-lines">
+                                                <div class="eq-line eq-line-formula">U = 100 &middot; e<sup>&minus;{{ eq.k }} &times; days left</sup></div>
+                                                <div class="eq-line eq-line-sub">= 100 &middot; e<sup>&minus;{{ eq.k }} &times; {{ eq.days_left }}</sup></div>
+                                                <div class="eq-line eq-line-result">= {{ eq.u_norm }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="why-eq-row">
+                                            <div class="why-eq-label">Difficulty (D)</div>
+                                            <div class="eq-lines">
+                                                <div class="eq-line eq-line-formula">
+                                                    D = clamp(100 &times;
+                                                    <span class="eq-frac"><span class="eq-frac-num">difficulty</span><span class="eq-frac-den">{{ eq.diff_max }}</span></span>, 0, 100)
+                                                </div>
+                                                <div class="eq-line eq-line-sub">
+                                                    = clamp(100 &times;
+                                                    <span class="eq-frac"><span class="eq-frac-num">{{ eq.diff }}</span><span class="eq-frac-den">{{ eq.diff_max }}</span></span>, 0, 100)
+                                                </div>
+                                                <div class="eq-line eq-line-result">= {{ eq.d_norm }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="why-eq-row">
+                                            <div class="why-eq-label">Size (S)</div>
+                                            <div class="eq-lines">
+                                                <div class="eq-line eq-line-formula">
+                                                    S = clamp(100 &times;
+                                                    <span class="eq-frac"><span class="eq-frac-num">hours</span><span class="eq-frac-den">{{ eq.hours_cap }}</span></span>, 0, 100)
+                                                </div>
+                                                <div class="eq-line eq-line-sub">
+                                                    = clamp(100 &times;
+                                                    <span class="eq-frac"><span class="eq-frac-num">{{ eq.hours }}</span><span class="eq-frac-den">{{ eq.hours_cap }}</span></span>, 0, 100)
+                                                </div>
+                                                <div class="eq-line eq-line-result">= {{ eq.s_norm }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="why-eq-row">
+                                            <div class="why-eq-label">Type (T)</div>
+                                            <div class="eq-lines">
+                                                <div class="eq-line eq-line-formula">T = typeScore(taskType)</div>
+                                                <div class="eq-line eq-line-sub">= typeScore(&lsquo;{{ eq.task_type }}&rsquo;)</div>
+                                                <div class="eq-line eq-line-result">= {{ eq.t_norm }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="why-eq-row">
+                                            <div class="why-eq-label">Priority Score (Total)</div>
+                                            <div class="eq-lines">
+                                                <div class="eq-line eq-line-formula">Priority Score = (w<sub>U</sub> &middot; U) + (w<sub>D</sub> &middot; D) + (w<sub>S</sub> &middot; S) + (w<sub>T</sub> &middot; T)</div>
+                                                <div class="eq-line eq-line-sub">= ({{ eq.w_u }} &times; {{ eq.u_norm }}) + ({{ eq.w_d }} &times; {{ eq.d_norm }}) + ({{ eq.w_s }} &times; {{ eq.s_norm }}) + ({{ eq.w_t }} &times; {{ eq.t_norm }})</div>
+                                                <div class="eq-line eq-line-sub">= {{ eq.u_weighted }} + {{ eq.d_weighted }} + {{ eq.s_weighted }} + {{ eq.t_weighted }}</div>
+                                                <div class="eq-line eq-line-result">= {{ eq.total }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </details>
                             </details>
                             {% endif %}
                         </article>
@@ -4294,21 +4479,22 @@
                 <div>
                     <label for="f-difficulty">Difficulty</label>
                     <select id="f-difficulty" name="difficulty" required>
-                        <option value="1">1 &mdash; easy</option>
-                        <option value="2">2</option>
-                        <option value="3" selected>3 &mdash; medium</option>
-                        <option value="4">4</option>
-                        <option value="5">5 &mdash; brutal</option>
+                        <option value="1">1 &mdash; Easy</option>
+                        <option value="2">2 &mdash; Easy-Medium</option>
+                        <option value="3" selected>3 &mdash; Medium</option>
+                        <option value="4">4 &mdash; Medium-Hard</option>
+                        <option value="5">5 &mdash; Hard</option>
                     </select>
                 </div>
                 <div>
                     <label for="f-type">Type</label>
                     <select id="f-type" name="task_type">
-                        <option value="assignment" selected>assignment</option>
-                        <option value="project">project</option>
-                        <option value="quiz">quiz</option>
-                        <option value="meeting">meeting</option>
-                        <option value="other">other</option>
+                        <option value="exam">Exam</option>
+                        <option value="lab">Lab</option>
+                        <option value="quiz">Quiz</option>
+                        <option value="activity">Activity</option>
+                        <option value="assignment" selected>Assignment</option>
+                        <option value="others">Others</option>
                     </select>
                 </div>
             </div>
@@ -4352,21 +4538,22 @@
                 <div>
                     <label for="e-difficulty">Difficulty</label>
                     <select id="e-difficulty" name="difficulty">
-                        <option value="1">1 &mdash; easy</option>
-                        <option value="2">2</option>
-                        <option value="3">3 &mdash; medium</option>
-                        <option value="4">4</option>
-                        <option value="5">5 &mdash; brutal</option>
+                        <option value="1">1 &mdash; Easy</option>
+                        <option value="2">2 &mdash; Easy-Medium</option>
+                        <option value="3">3 &mdash; Medium</option>
+                        <option value="4">4 &mdash; Medium-Hard</option>
+                        <option value="5">5 &mdash; Hard</option>
                     </select>
                 </div>
                 <div>
                     <label for="e-type">Type</label>
                     <select id="e-type" name="task_type">
-                        <option value="assignment">assignment</option>
-                        <option value="project">project</option>
-                        <option value="quiz">quiz</option>
-                        <option value="meeting">meeting</option>
-                        <option value="other">other</option>
+                        <option value="exam">Exam</option>
+                        <option value="lab">Lab</option>
+                        <option value="quiz">Quiz</option>
+                        <option value="activity">Activity</option>
+                        <option value="assignment">Assignment</option>
+                        <option value="others">Others</option>
                     </select>
                 </div>
             </div>
@@ -5035,7 +5222,7 @@
         document.getElementById('e-subject').value = subject || '';
         document.getElementById('e-deadline').value = deadline || '';
         document.getElementById('e-difficulty').value = String(difficulty || 3);
-        document.getElementById('e-type').value = taskType || 'other';
+        document.getElementById('e-type').value = taskType || 'others';
         document.getElementById('e-hours').value = hours || 1;
         document.getElementById('e-time').value = time || '';
         document.getElementById('edit-modal').hidden = false;

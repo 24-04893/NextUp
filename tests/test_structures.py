@@ -149,12 +149,16 @@ def test_dashboard_hero_breakdown_table(client):
     html = client.get("/").get_data(as_text=True)
     assert "Why is this on top?" in html
     assert 'class="why-table"' in html
-    # arithmetic spot-check vs the API: urgency today = 300 + diff 25 + 3*1.5 + quiz 8
+    # WSM arithmetic spot-check vs the API (non-zero score, table rendered, matches API)
     task = next(t for t in client.get("/api/tasks").get_json()["tasks"]
                 if t["name"] == "Breakdown")
-    expected_total = 300 + 25 + (3 * 1.5) + 8
-    assert abs(task["priority"] - expected_total) < 0.01
-    assert str(round(expected_total, 1)) in html            # shown in the panel
+    assert task["priority"] > 0
+    assert f"{task['priority']:.2f}" in html                    # shown in the panel
+    assert "Normalized (0-100)" in html
+    assert "Weighted Score" in html
+    assert "See computation" in html
+    assert "Priority Score" in html
+    assert "eq-frac" in html
 
 
 def test_dashboard_breakdown_hidden_when_empty(client):

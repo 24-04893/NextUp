@@ -47,7 +47,7 @@ def test_ics_one_vevent_per_open_task(client):
     body = client.get("/export.ics").get_data(as_text=True)
     assert body.count("BEGIN:VEVENT") == 2
     assert body.count("END:VEVENT") == 2
-    assert "SUMMARY:ICS One (other)" in body
+    assert "SUMMARY:ICS One (others)" in body
     assert "SUMMARY:ICS Two (quiz)" in body
     assert "DTSTART;VALUE=DATE:" + today.replace("-", "") in body
     assert "Difficulty: 3/5" in body           # description carries facts
@@ -61,7 +61,7 @@ def test_ics_escapes_semicolons_commas_backslashes(client):
                               "deadline": today, "difficulty": "3"},
                 follow_redirects=True)
     body = client.get("/export.ics").get_data(as_text=True)
-    assert "SUMMARY:Evil\\, \\; name (other)" in body
+    assert "SUMMARY:Evil\\, \\; name (others)" in body
 
 
 def test_ics_folds_long_lines(client):

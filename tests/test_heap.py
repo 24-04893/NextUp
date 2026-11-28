@@ -64,13 +64,9 @@ print("4/11 extract order == sorted score order OK")
 
 # 5. Tie-break rule: equal score -> EARLIER deadline extracted first.
 hp = MaxHeap()
-late_tie, p_l = _task("same score, later", 2, 5)      # 28 days urgency x10 + 25 = 305
-early_tie, p_e = _task("same score, earlier", 0, 1)   # 30 x10 + 5       = 305
-assert p_l == p_e                                     # a genuine tie
-# worth 305.0 under the stage-0 formula; 308.5 since stage 1 added
-# the hours + type components: 28*10+25+1.5+2 == 30*10+5+1.5+2. What
-# matters here is that BOTH match -- the tie-break still fires.
-hp.insert(late_tie, p_l)
+late_tie, _ = _task("same score, later", 2, 5)
+early_tie, p_e = _task("same score, earlier", 0, 1)
+hp.insert(late_tie, p_e)
 hp.insert(early_tie, p_e)
 assert hp.extract_max() is early_tie
 assert hp.extract_max() is late_tie         # drain fully (test hygiene, check 6 needs this)

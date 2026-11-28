@@ -11,10 +11,16 @@ from flask import (Flask, abort, flash, jsonify, redirect, render_template,
                    request, Response, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from task_manager import TaskManager
-from storage import UserStore
-from scoring import score_breakdown, plan_study_session
-from pdf_export import generate_task_pdf, generate_tasks_list_pdf, safe_pdf_filename
+if __package__:
+    from .task_manager import TaskManager
+    from .storage import UserStore
+    from .scoring import DIFFICULTY_MAX, HOURS_CAP, URGENCY_DECAY_K, score_breakdown, plan_study_session
+    from .pdf_export import generate_task_pdf, generate_tasks_list_pdf, safe_pdf_filename
+else:
+    from task_manager import TaskManager
+    from storage import UserStore
+    from scoring import DIFFICULTY_MAX, HOURS_CAP, URGENCY_DECAY_K, score_breakdown, plan_study_session
+    from pdf_export import generate_task_pdf, generate_tasks_list_pdf, safe_pdf_filename
 
 app = Flask(__name__)
 # flash() signs its one-shot cookies; any non-empty string works. This is a
@@ -95,21 +101,92 @@ def badge_for(task, today):
 
 
 def hero_explanation(task, today):
-    """'Why is this on top?' facts for the hero card. O(1).
+    """'Why is this on top?' WSM breakdown for the hero card. O(1).
     Uses the same score_breakdown() the score was built from — explanation never drifts."""
     bd = score_breakdown(task, today)
-    days_left = (task.deadline - today).days
+    norm = bd["normalized"]
+    w = bd["weights"]
+    days_left = bd["days_left"]
+    due_time = task.deadline_time or "23:59"
+    due_label = task.deadline.strftime("%b %d").replace(" 0", " ") + f" {due_time}"
     if days_left < 0:
-        urgency_lang = f"OVERDUE by {abs(days_left)} day(s)"
+        urgency_raw = f"OVERDUE by {abs(days_left):.2f}d (due {due_label})"
+    elif abs(days_left) < 1e-6:
+        urgency_raw = f"Due now ({due_label})"
     else:
-        urgency_lang = f"{days_left} day(s) left"
-    line = (f"It wins with {urgency_lang} -> urgency "
-            f"{bd['urgency']:.0f} pts, difficulty {task.difficulty}/5 "
-            f"-> {bd['difficulty']:.0f} pts, capped work {task.hours_str()}h "
-            f"-> {bd['hours']:.1f} pts, plus {bd['type']:.0f} pts because "
-            f"it is a '{task.task_type}'.")
-    return round(bd["urgency"], 1), round(bd["difficulty"], 1), \
-        round(bd["hours"], 1), round(bd["type"], 1), round(bd["total"], 1), line
+        urgency_raw = f"{days_left:.2f}d left (due {due_label})"
+
+    rows = [
+        {
+            "factor": "Urgency",
+            "raw": urgency_raw,
+            "norm": f"{norm['urgency']:.2f}",
+            "weight": f"{w['urgency']:.2f}",
+            "weighted": f"{bd['urgency']:.2f}",
+        },
+        {
+            "factor": "Type",
+            "raw": f"'{task.task_type.capitalize()}'",
+            "norm": f"{norm['type']:.2f}",
+            "weight": f"{w['type']:.2f}",
+            "weighted": f"{bd['type']:.2f}",
+        },
+        {
+            "factor": "Difficulty",
+            "raw": f"{task.difficulty}/5 steps",
+            "norm": f"{norm['difficulty']:.2f}",
+            "weight": f"{w['difficulty']:.2f}",
+            "weighted": f"{bd['difficulty']:.2f}",
+        },
+        {
+            "factor": "Size",
+            "raw": f"{task.hours_str()} {'hour' if task.estimated_hours == 1 else 'hours'} (cap {HOURS_CAP:g}h)",
+            "norm": f"{norm['hours']:.2f}",
+            "weight": f"{w['hours']:.2f}",
+            "weighted": f"{bd['hours']:.2f}",
+        },
+    ]
+    eq = {
+        "k": f"{URGENCY_DECAY_K:.2f}",
+        "days_left": f"{days_left:.2f}",
+        "u_norm": f"{norm['urgency']:.2f}",
+        "diff": str(task.difficulty),
+        "diff_max": f"{DIFFICULTY_MAX:g}",
+        "d_norm": f"{norm['difficulty']:.2f}",
+        "hours": task.hours_str(),
+        "hours_cap": f"{HOURS_CAP:g}",
+        "s_norm": f"{norm['hours']:.2f}",
+        "task_type": task.task_type.capitalize(),
+        "t_norm": f"{norm['type']:.2f}",
+        "w_u": f"{w['urgency']:.2f}",
+        "w_d": f"{w['difficulty']:.2f}",
+        "w_s": f"{w['hours']:.2f}",
+        "w_t": f"{w['type']:.2f}",
+        "u_weighted": f"{bd['urgency']:.2f}",
+        "d_weighted": f"{bd['difficulty']:.2f}",
+        "s_weighted": f"{bd['hours']:.2f}",
+        "t_weighted": f"{bd['type']:.2f}",
+        "total": f"{bd['total']:.2f}",
+    }
+    line = (
+        f"WSM score {bd['total']:.2f}/100: Urgency {bd['urgency']:.2f} "
+        f"({w['urgency']:.2f}x{norm['urgency']:.2f}) + Type {bd['type']:.2f} "
+        f"({w['type']:.2f}x{norm['type']:.2f}) + Difficulty {bd['difficulty']:.2f} "
+        f"({w['difficulty']:.2f}x{norm['difficulty']:.2f}) + Size {bd['hours']:.2f} "
+        f"({w['hours']:.2f}x{norm['hours']:.2f})."
+    )
+    return {
+        "urgency": round(bd["urgency"], 2),
+        "type": round(bd["type"], 2),
+        "difficulty": round(bd["difficulty"], 2),
+        "hours": round(bd["hours"], 2),
+        "total": round(bd["total"], 2),
+        "total_str": f"{bd['total']:.2f}",
+        "weight_sum": f"{sum(w.values()):.2f}",
+        "rows": rows,
+        "eq": eq,
+        "why": line,
+    }
 
 
 def decorate(tasks, today):
@@ -123,7 +200,7 @@ def decorate(tasks, today):
             "estimated_hours": t.estimated_hours, "hours_str": t.hours_str(),
             "task_type": t.task_type, "deadline_time": t.deadline_time,
             "completed": t.completed, "completed_at": t.completed_at,
-            "priority": round(t.priority, 1),
+            "priority": round(t.priority, 2),
             "badge": badge, "days_left": days_left,
         })
     return out
@@ -236,11 +313,11 @@ def _academic_focus(views, today):
 
     for t in open_tasks:
         tt = (t.task_type or "").lower()
-        if tt == "assignment":
+        if tt in ("assignment", "activity"):
             key = "tasks"
-        elif tt == "quiz":
+        elif tt in ("quiz", "exam"):
             key = "quiz"
-        elif tt == "project":
+        elif tt == "lab":
             key = "projects"
         else:
             key = "other"
@@ -358,8 +435,8 @@ def auth_demo():
     today = mgr.today()
     day_offsets = [0, 1, 2, 3, 4, 5, 6, random.randint(0, 6)]
     random.shuffle(day_offsets)
-    task_types = ["assignment", "project", "quiz", "meeting", "other",
-                  "assignment", "quiz", "project"]
+    task_types = ["assignment", "lab", "quiz", "activity", "others",
+                  "exam", "quiz", "lab"]
     random.shuffle(task_types)
     times = ["09:00", "10:30", "13:00", "15:00", "17:30", "19:00", "21:00", "23:59"]
     hours_pool = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
@@ -418,9 +495,7 @@ def index():
 
     open_total = (mgr.status()["open"])
     if views["top"] is not None:
-        u, d, h, ty, tot, why = hero_explanation(views["top"], today)
-        breakdown = {"urgency": u, "difficulty": d, "hours": h,
-                     "type": ty, "total": tot, "why": why}
+        breakdown = hero_explanation(views["top"], today)
     else:
         breakdown = None
     # Weekly workload strip & academic focus donut data

@@ -136,12 +136,14 @@ def generate_task_pdf(task, today: date, breakdown=None) -> bytes:
         pdf.cell(0, 8, "Priority Score Breakdown", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(2)
 
+        norm = breakdown.get("normalized", {})
+        weights = breakdown.get("weights", {})
         bd_rows = [
-            ("Urgency", f"{breakdown['urgency']:.1f} pts", "Days left weighted by urgency"),
-            ("Difficulty", f"{breakdown['difficulty']:.1f} pts", f"Difficulty {task.difficulty}/5 x 5"),
-            ("Estimated Size", f"{breakdown['hours']:.1f} pts", f"Hours capped at 8h x 1.5"),
-            ("Task Type", f"{breakdown['type']:.1f} pts", f"Type '{task.task_type}'"),
-            ("Total Priority Score", f"{breakdown['total']:.1f} pts", "Higher score = higher priority"),
+            ("Urgency", f"{breakdown['urgency']:.2f}", f"Norm {norm.get('urgency', 0):.2f} x w={weights.get('urgency', 0.45):.2f}"),
+            ("Type", f"{breakdown['type']:.2f}", f"'{task.task_type}' (Norm {norm.get('type', 0):.2f} x w={weights.get('type', 0.25):.2f})"),
+            ("Difficulty", f"{breakdown['difficulty']:.2f}", f"{task.difficulty}/5 (Norm {norm.get('difficulty', 0):.2f} x w={weights.get('difficulty', 0.15):.2f})"),
+            ("Estimated Size", f"{breakdown['hours']:.2f}", f"{task.hours_str()}h cap 8h (Norm {norm.get('hours', 0):.2f} x w={weights.get('hours', 0.15):.2f})"),
+            ("Total Priority Score", f"{breakdown['total']:.2f} / 100", "Weighted Sum Model (higher wins)"),
         ]
         for idx, (k, v, desc) in enumerate(bd_rows):
             is_total = idx == len(bd_rows) - 1
