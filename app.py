@@ -76,13 +76,13 @@ def current_manager():
         mgr = TaskManager(user_db, legacy_json="")
         _user_managers[user_db] = mgr
     # On Vercel serverless, /tmp is ephemeral across instances; hydrate from signed session cookie if empty.
-    if os.environ.get("VERCEL") and not mgr.store.load_all() and session.get("vercel_tasks"):
+    if os.environ.get("VERCEL") and not mgr.store.load_tasks() and session.get("vercel_tasks"):
         try:
             raw = zlib.decompress(base64.b64decode(session["vercel_tasks"]))
             items = json.loads(raw.decode("utf-8"))
             if isinstance(items, list) and items:
-                tasks = [Task.from_dict(d) for d in items]
-                mgr.store.save_all(tasks)
+                for d in items:
+                    mgr.store.upsert(Task.from_dict(d))
                 mgr = TaskManager(user_db, legacy_json="")
                 _user_managers[user_db] = mgr
         except Exception:
@@ -96,7 +96,7 @@ def _no_cache_for_dynamic_views(response):
     if os.environ.get("VERCEL") and request.method == "POST" and not request.path.startswith("/auth/logout"):
         try:
             mgr = current_manager()
-            tasks = mgr.store.load_all()
+            tasks = mgr.store.load_tasks()
             payload = json.dumps([t.to_dict() for t in tasks], separators=(",", ":")).encode("utf-8")
             encoded = base64.b64encode(zlib.compress(payload, level=6)).decode("ascii")
             if len(encoded) < 3400:
